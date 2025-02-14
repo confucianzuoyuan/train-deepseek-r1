@@ -1,5 +1,4 @@
-<!-- omit in toc -->
-# Train DeepSeek R1 from Scratch
+![(title)](title.png)
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue) [![Medium](https://img.shields.io/badge/Medium-Read%20Now-red?logo=medium)](https://medium.com/@fareedkhandev) ![Contributions](https://img.shields.io/badge/Contributions-Welcome-yellow) 
 
