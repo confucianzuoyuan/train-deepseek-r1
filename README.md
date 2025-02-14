@@ -17,7 +17,10 @@ I explained **DeepSeek R1** with **hand-drawn diagrams** for non-tech folks. [Re
 
 The codebase is organized as follows:
 
-{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}
+train-deepseek-r1/
+|--- `code.ipynb` (Jupyter notebook with code implementation)
+|--- `requirements.txt` (List of required libraries)
+|--- `r1_for_dummies.md` (DeepSeek R1 explanation for non-tech folks)
 
 <!-- omit in toc -->
 ## Table of Contents
@@ -59,7 +62,7 @@ The codebase is organized as follows:
 Clone the repository and install the required libraries using the following commands:
 
 ```bash
-git clone 
+git clone https://github.com/FareedKhan-dev/train-deepseek-r1.git
 cd train-deepseek-r1
 pip install -r requirements.txt
 ```
@@ -67,7 +70,47 @@ pip install -r requirements.txt
 Now, let’s import the required libraries and set up the environment for our training.
 
 ```python
-[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]
+# Import necessary libraries
+import logging
+import os
+import sys
+import re
+import math
+from dataclasses import dataclass, field
+from typing import List, Optional
+
+# Import PyTorch and Hugging Face Transformers
+import torch
+import transformers
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    HfArgumentParser,
+    TrainingArguments,
+    set_seed,
+    TrainerCallback,
+    TrainerControl,
+    TrainerState,
+)
+from transformers.trainer_utils import get_last_checkpoint
+
+# Import dataset utilities
+import datasets
+from datasets import load_dataset
+
+# Import libraries from TRL (Transformers Reinforcement Learning)
+from trl import (
+    AutoModelForCausalLMWithValueHead, 
+    PPOConfig, 
+    PPOTrainer, 
+    GRPOTrainer, 
+    GRPOConfig, 
+    SFTTrainer
+)
+
+# Import math-related utilities
+from latex2sympy2_extended import NormalizationConfig
+from math_verify import LatexExtractionConfig, parse, verify
 ```
 
 ## Our Training Dataset
