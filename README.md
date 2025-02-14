@@ -17,10 +17,12 @@ I explained **DeepSeek R1** with **hand-drawn diagrams** for non-tech folks. [Re
 
 The codebase is organized as follows:
 
+```bash
 train-deepseek-r1/
-|--- `code.ipynb` (Jupyter notebook with code implementation)
-|--- `requirements.txt` (List of required libraries)
-|--- `r1_for_dummies.md` (DeepSeek R1 explanation for non-tech folks)
+├── code.ipynb         # Jupyter notebook with code implementation
+├── requirements.txt   # List of required libraries
+└── r1_for_dummies.md  # DeepSeek R1 explanation for non-tech folks
+```
 
 <!-- omit in toc -->
 ## Table of Contents
