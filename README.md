@@ -27,8 +27,8 @@ train-deepseek-r1/
 ## Table of Contents
 - [配置开发环境](#配置开发环境)
 - [训练数据集](#训练数据集)
-- [DeepSeek R1 训练概览](#deepseek-r1-training-quick-overview)
-- [选择基础模型](#choosing-our-base-model)
+- [DeepSeek R1 训练概览](#DeepSeek-R1-训练概览)
+- [选择基础模型](#选择基础模型)
 - [强化学习中的策略模型(R)](#policy-model-r-in-rl-setup)
 - [R1 Zero中的GRPO算法](#grpo-algorithm-for-r1-zero)
 - [提示词模板](#prompt-template)
@@ -178,26 +178,29 @@ bespoke_rl['train'][0]
 
 你不一定要选择这两个数据集，可以选择任何一个面向推理的数据集（**包含问题及问题的分步解答**）。
 
-## DeepSeek R1 Training Quick Overview
+## DeepSeek R1 训练概览
 
-So, before going into the technical implementation, a quick overview is that DeepSeek-R1 isn’t trained from scratch, like, from nothing. Instead, they started with a pretty smart LLM they already had [DeepSeek-V3](https://github.com/deepseek-ai/DeepSeek-V3) but they wanted to make it a reasoning superstar.
+因此，在介绍技术实现之前，我们需要明白 DeepSeek-R1 并非从头开始训练的，也就是说，从零开始训练。相反，他们从一个非常聪明的模型开始，而他们已经有了[DeepSeek-V3](https://github.com/deepseek-ai/DeepSeek-V3) LLM，但他们想让它成为推理届的超级明星。
 
 ![DeepSeek R1 Implementation Quick Overview (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/5872/1*XhE5MVuPfOrrbBxgYtHMsg.png)
 
 To do that, they used **Reinforcement Learning**, or RL for short where you reward the LLM when it does something good for reasoning while punish it otherwise.
 
-But it’s not just one simple training session. It’s like a whole bunch of steps, a pipeline they call it. They first tried just pure **RL** to see if reasoning would pop up by itself **that was DeepSeek-R1-Zero**, kinda an experiment. Then for the **real DeepSeek-R1**, they made it more organized with different stages. They give it some starting data to get it going, then do RL, then more data, then more RL… it’s like leveling up, step by step!
+为了做到这一点，他们使用了**强化学习**（简称 RL），当 LLM 输出有益于推理的响应时，就奖励 LLM ，否则就惩罚 LLM 。
 
-The whole point is to make these language models way better at thinking through problems.
->So yeah, that’s the super short version before we look into the crazy details of each step
+但这不仅仅是一个简单的训练环节。它就像是一大堆步骤，他们称之为流水线。他们首先尝试了纯强化学习 ，看看推理是否会自行出现，这就是 **DeepSeek-R1-Zero** ，有点像一个实验。然后对于真正的 **DeepSeek-R1** ，他们通过不同的阶段使其更有条理。他们给它一些启动数据让它运行，然后进行强化学习，然后是更多的数据，然后是更多的强化学习……就像是一步步升级！
 
-## Choosing our Base Model
+关键在于让这些语言模型更好地思考问题。
 
-Since DeepSeek team chose DeepSeek-V3 as their base model to create R1 Zero and R1, but it’s quite huge **685 GB 💀 in size** which is obviously not in our reach.
+> 是的，在我们深入研究每个步骤的疯狂细节之前，这是非常简短的版本
 
-To keep it simple, we will use a much smaller base model [Qwen/Qwen2.5–0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) (0.9 GB in size). If you have a higher GPU RAM that can even load unquantized LLMs, you can go for a bigger model, such as [Qwen/Qwen2.5–7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct).
+## 选择基础模型
 
-Let’s take a look at some of the specification of our base model:
+由于 DeepSeek 团队选择了 DeepSeek-V3 作为基础模型来创建 R1 Zero 和 R1，但它的大小相当庞大（**685 GB💀**），显然超出了我们的承受范围。
+
+为简单起见，我们将使用小得多的基础模型 [Qwen/Qwen2.5–0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct)（大小为 0.9 GB）。如果有更大的 GPU RAM，甚至可以加载未量化的 LLM，那么可以选择更大的模型，例如 [Qwen/Qwen2.5–7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) 。
+
+让我们看一下我们用的基础模型的一些规格：
 
 ```python
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
@@ -230,7 +233,8 @@ Pad token: <|endoftext|>
 EOS token: <|im_end|>
 #### OUTPUT ####
 ```
-These are some basic info about the model, take a look at the total number of parameters our base model has.
+
+这些是有关模型的一些基本信息，请查看我们的基础模型的参数总数。
 
 ```python
 # Initialize base model
@@ -248,7 +252,7 @@ Model parameters: 494,032,768
 #### OUTPUT ####
 ```
 
-Close to 0.5B params, let’s print a simple response from it and then we will move on to next step.
+接近 0.5B 个参数，让我们从中打印一个简单的响应，然后我们将继续下一步。
 
 ```python
 # Check CUDA availability
@@ -297,56 +301,86 @@ print(f"Model Response: {response}")
 Model Response: As an AI language model I dont have feelings ..."
 #### OUTPUT ####
 ```
-So, the output of this tiny model is quite reliable and suitable for our DeepSeek lookalike model training for sure.
+
+所以，这个小的大模型的输出非常可靠，并且肯定适合我们去训练和 DeepSeek 相似的模型。
 
 ## Policy Model (R) In RL Setup
 
 Now that we have selected our base model, next we need to understand how a basic RL setup works for training an LLM.
 
+现在我们已经选择了基础模型，接下来我们需要了解基本 RL 设置如何训练 LLM。
+
 For DeepSeek R1 their starting point was (DeepSeek V3) base model and in our case we are starting with Qwen2.5–0.5B-Instruct. By a starting point I meant that **it has created the DeepSeek R1 zero version**, an initial version which has some errors in it before the final version was created.
 
+对于 DeepSeek R1，他们的起点是（DeepSeek V3）基础模型，而在我们的案例中，我们从 Qwen2.5–0.5B-Instruct 开始。我所说的起点是指 **它已经创建了 DeepSeek R1 zero版本** ，这是在创建最终版本之前包含一些错误的初始版本。
+
 The initial version (R1 Zero) was created using Reinforcement Learning where (DeepSeek v3/Qwen2.5–0.5B) acts as an RL agent (actor who takes action). Let’s first visualize how it works.
+
+初始版本 (R1 Zero) 是使用强化学习创建的，其中 (DeepSeek v3/Qwen2.5–0.5B) 充当强化学习的agent（采取行动的参与者）。让我们首先直观地了解一下它的工作原理。
 
 ![Qwen 2.5 as an agent workflow (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/5410/1*S6YIXu1vIVmQFl-DgRFktg.png)
 
 The RL agent (DeepSeek V3/Qwen2–0.5B) starts by taking an **Action**, which means it generates an answer and some reasoning for a given problem that’s put into its **Environment**. The Environment, in this case, is simply the reasoning task itself.
 
+强化学习Agent (DeepSeek V3/Qwen2–0.5B) 首先采取一个 **Action** ，这意味着它会针对给定的问题生成答案和一些推理，并将其放入其 **Environment** 中。在这种情况下，Environment 就是推理任务本身。
+
 After taking an action, the Environment gives back a **Reward**. This Reward is like feedback, it tells our base model (DeepSeek V3/Qwen2–0.5B) how good its action was. A positive Reward means it did something right, maybe got the answer correct or reasoned well. This feedback signal then goes back to our base model, helping it learn and adjust how it takes actions in the future to get even better Rewards.
-> In the next section, we will be discussing this methodology in more detail
+
+采取 Action 后，Environment会给出Reward。这个Reward就像反馈，它告诉我们的基础模型（DeepSeek V3/Qwen2–0.5B）它的Action有多好。积极的Reward意味着它做对了某件事，可能得到了正确的答案或推理得很好。这个反馈信号随后会返回到我们的基础模型，帮助它学习和调整未来如何采取Action以获得更好的Reward。
+
+> 在下一节中，我们将更详细地讨论这种方法
 
 ## GRPO Algorithm for R1 Zero
 
 So that we have understand a basic RL flow now we need to learn what exact RL algorithm DeepSeek uses for R1-Zero.
 
+为了理解基本的 RL 流程，现在我们需要了解 DeepSeek 对 R1-Zero 使用的具体 RL 算法。
+
 There are many RL algos available, but traditional RL use something called a **“critic” **to help the main decision making part (“actor” i.e. DeepSeek-V3/Qwen2-0.5B). This critic is usually just as big and complex as the actor itself, which basically doubles the amount of computational cost.
+
+有许多可用的 RL 算法，但传统的 RL 使用一种称为 **"critic"** 的东西来帮助主要决策部分（“actor”，即 DeepSeek-V3/Qwen2-0.5B）。这个critic通常与actor本身一样大和复杂，这基本上使计算成本翻倍。
 
 But DeepSeek uses GRPO for training their initial (R1 Zero), **GRPO** does things differently because it figures out a baseline, a kind of reference point for good actions directly from the results it gets from a **group** of actions. Because of this, GRPO doesn’t need a separate critic model at all. This saves a lot of computation and makes things more efficient.
 
+但是 DeepSeek 使用 **GRPO** 来训练其初始模型（R1 Zero）， GRPO 的做法有所不同，因为它会根据一组action的结果直接找出基线，即良好action的参考点。因此，GRPO 根本不需要单独的critic模型。这节省了大量计算并提高了效率。
+
 Let’s draw a flowchart of how GRPO is being used for R1 Zero training, and then we will **interpretate** it.
+
+让我们绘制一个流程图，说明如何将 GRPO 用于 R1 Zero 的训练，然后对其进行 **解释** 。
 
 ![GRPO Flow for DeepSeek R1 Zero (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6404/1*8mfNzi-gvasR7mSaseswmg.png)
 
 Let’s understand how DeepSeek GRPO implementation works with our base model (Qwen2–0.5B). 
 
+让我们了解一下 DeepSeek 的 GRPO 实现如何与我们的基础模型（Qwen2-0.5B）协同工作。
+
 First, the **Problem Input (A)** is given to the **Qwen Model (B)**, Qwen attempts to generate an answer through **Generate Completion (C)**. The final result, called the **Completion Output (D)**, includes reasoning steps in <think> tags and the final solution in <answer> tags.
+
+首先， **问题输入（A）** 被输入到 **Qwen 模型（B）** 中，Qwen 尝试通过 **生成补全（C）** 来产生答案。最终结果称为 **完成输出（D）** ，其中包括 `<think>` 标签中的推理步骤和 `<answer>` 标签中的最终解决方案。
 
 Next, the **Problem Input (A)** and the **Ground Truth Solution (E)** are fed into the **Reward Functions (F)**, acting as intelligent graders. These functions compare Qwen **Completion Output (D)** with the correct solution and evaluate different aspects such as:
 
- 1. **Accuracy** (is the answer correct?)
+接下来， **问题输入 (A)** 和 **真实答案 (E)** 被输入到 **Reward函数 (F)** 中，充当智能评分器。这些函数将 Qwen 的 **完成输出(D)** 与正确答案进行比较，并评估不同方面，例如：
 
- 2. **Format** (are the <think> and <answer> tags used properly?)
+ 1. **准确性** (答案正确吗？)
 
- 3. **Reasoning Steps** (is the logic clear?)
+ 2. **格式** (`<think>` 和 `<answer>` 标签是否正确使用了？)
 
- 4. **Cosine Scaling** (is the response concise?)
+ 3. **推理步骤** (逻辑清楚吗?)
 
- 5. **Repetition Penalty** (is there unnecessary repetition?).
+ 4. **余弦缩放(Cosine Scaling)** (响应是否简洁？)
+
+ 5. **重复性惩罚(Repetition Penalty)** (是否存在不必要的重复？).
 
 These evaluations produce **Reward Scores (G)**, which are then passed to the **GRPO Trainer (H)**. The trainer uses gradients to adjust the **Qwen Model (B)**, fine-tuning how it generates answers. This process is called **Gradient Reward Policy Optimization** because it optimizes Qwen responses using **gradients**, **reward feedback**, and **policy adjustments** to maximize performance.
 
+这些评估会产生 **Reward分数 (G)** ，然后传递给 **GRPO训练器(H)** 。训练器使用梯度来调整 **Qwen模型(B)** ，微调其生成答案的方式。这个过程被称为 **Gradient Reward Policy Optimization**，因为它使用 **gradient** 、**reward** 反馈 和 **policy** 调整来优化 Qwen 响应，以最大限度地提高性能。
+
 Finally, the updated **Qwen Model (B)** is tested again on new problems, continuously refining itself through repeated cycles. With each iteration, Qwen becomes a better problem solver.
 
-> In the upcoming section we will start preprocessing our training dataset for GRPO training
+最后，更新后的 **Qwen模型(B)** 再次在新问题上进行测试，通过反复循环不断完善自身。随着每次迭代，Qwen 都会成为更好的问题解决者。
+
+> 在下一节中，我们将开始预处理 GRPO 训练所使用的训练数据集
 
 ## Prompt Template
 
