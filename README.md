@@ -25,53 +25,53 @@ train-deepseek-r1/
 
 <!-- omit in toc -->
 ## Table of Contents
-- [Setting up the Stage](#setting-up-the-stage)
-- [Our Training Dataset](#our-training-dataset)
-- [DeepSeek R1 Training Quick Overview](#deepseek-r1-training-quick-overview)
-- [Choosing our Base Model](#choosing-our-base-model)
-- [Policy Model (R) In RL Setup](#policy-model-r-in-rl-setup)
-- [GRPO Algorithm for R1 Zero](#grpo-algorithm-for-r1-zero)
-- [Prompt Template](#prompt-template)
-- [Preprocessing Training Data](#preprocessing-training-data)
-- [Reward Functions](#reward-functions)
-  - [Accuracy Reward](#accuracy-reward)
-  - [Format Reward](#format-reward)
-  - [Reasoning Steps Reward](#reasoning-steps-reward)
-  - [Cosine Scaled Reward](#cosine-scaled-reward)
-  - [Repetition Penalty Reward](#repetition-penalty-reward)
-- [Training Configurations for R1 Zero](#training-configurations-for-r1-zero)
-- [GRPO Training Loop](#grpo-training-loop)
-- [Saving Tiny R1 Zero LLM](#saving-tiny-r1-zero-llm)
-- [Two main problems with R1 Zero](#two-main-problems-with-r1-zero)
-- [Preparing Cold Start Data for SFT](#preparing-cold-start-data-for-sft)
-- [Few-shot Prompting with Long CoT](#few-shot-prompting-with-long-cot)
-- [Direct Prompting](#direct-prompting)
-- [Post Processing Refinement](#post-processing-refinement)
-- [SFT Stage 1 With Cold Start Data](#sft-stage-1-with-cold-start-data)
+- [配置开发环境](#配置开发环境)
+- [训练数据集](#训练数据集)
+- [DeepSeek R1 训练概览](#deepseek-r1-training-quick-overview)
+- [选择基础模型](#choosing-our-base-model)
+- [强化学习中的策略模型(R)](#policy-model-r-in-rl-setup)
+- [R1 Zero中的GRPO算法](#grpo-algorithm-for-r1-zero)
+- [提示词模板](#prompt-template)
+- [对训练数据进行预处理](#preprocessing-training-data)
+- [奖励函数](#reward-functions)
+  - [准确性奖励](#accuracy-reward)
+  - [格式奖励](#format-reward)
+  - [推理步骤奖励](#reasoning-steps-reward)
+  - [余弦缩放奖励(Cosine Scaled Reward)](#cosine-scaled-reward)
+  - [重复性惩罚奖励(Repetition Penalty Reward)](#repetition-penalty-reward)
+- [R1 Zero的训练配置](#training-configurations-for-r1-zero)
+- [GRPO训练循环](#grpo-training-loop)
+- [保存 Tiny R1 Zero LLM](#saving-tiny-r1-zero-llm)
+- [R1 Zero的两个主要问题](#two-main-problems-with-r1-zero)
+- [为SFT准备冷启动数据](#preparing-cold-start-data-for-sft)
+- [使用长思维链(Long CoT)进行少样本(few-shot)提示](#few-shot-prompting-with-long-cot)
+- [直接进行提示](#direct-prompting)
+- [后处理细化(Post Processing Refinement)](#post-processing-refinement)
+- [使用冷启动数据进行第一阶段的SFT](#sft-stage-1-with-cold-start-data)
 - [Stage 1 SFT Trainer Configs for R1](#stage-1-sft-trainer-configs-for-r1)
 - [Stage 1 STF Training Loop](#stage-1-stf-training-loop)
-- [Saving Tiny R1 LLM](#saving-tiny-r1-llm)
-- [Reasoning-Oriented RL](#reasoning-oriented-rl)
-- [Rejection Sampling](#rejection-sampling)
-- [SFT Stage 2 Training](#sft-stage-2-training)
-- [Distillation](#distillation)
+- [保存 Tiny R1 LLM 模型](#saving-tiny-r1-llm)
+- [面向推理的强化学习](#reasoning-oriented-rl)
+- [拒绝采样(Rejection Sampling)](#rejection-sampling)
+- [第二阶段的SFT训练](#sft-stage-2-training)
+- [蒸馏(Distillation)](#distillation)
 
 
 
-## Setting up the Stage
+## 配置开发环境
 
-Clone the repository and install the required libraries using the following commands:
+使用以下命令克隆存储库并安装所需的库：
 
 ```bash
-git clone https://github.com/FareedKhan-dev/train-deepseek-r1.git
+git clone https://github.com/confucianzuoyuan/train-deepseek-r1.git
 cd train-deepseek-r1
 pip install -r requirements.txt
 ```
 
-Now, let’s import the required libraries and set up the environment for our training.
+现在，让我们导入所需的库并为我们的训练设置环境。
 
 ```python
-# Import necessary libraries
+# 导入必要的库
 import logging
 import os
 import sys
@@ -80,7 +80,7 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-# Import PyTorch and Hugging Face Transformers
+# 导入PyTorch和Hugging Face Transformers库
 import torch
 import transformers
 from transformers import (
@@ -95,11 +95,11 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint
 
-# Import dataset utilities
+# 导入数据集相关库
 import datasets
 from datasets import load_dataset
 
-# Import libraries from TRL (Transformers Reinforcement Learning)
+# 从 TRL (Transformers Reinforcement Learning) 导入相关库
 from trl import (
     AutoModelForCausalLMWithValueHead, 
     PPOConfig, 
@@ -109,22 +109,22 @@ from trl import (
     SFTTrainer
 )
 
-# Import math-related utilities
+# 导入数学相关的库
 from latex2sympy2_extended import NormalizationConfig
 from math_verify import LatexExtractionConfig, parse, verify
 ```
 
-## Our Training Dataset
+## 训练数据集
 
-Although the paper doesn’t specify the exact initial dataset for RL pre-training, we assume it should be reasoning focused.
+虽然论文没有说明 RL 预训练所使用的初始数据集，但我们假设它应该是推理方面的数据集。
 
-So to stay as close as possible to the original replication, we will use these two open-source reasoning Hugging Face datasets:
+因此为了尽可能接近原始复制，我们将使用这两个开源的推理数据集（来自Hugging Face）：
 
- 1. [NuminaMath-TIR](https://huggingface.co/datasets/AI-MO/NuminaMath-TIR) (For R1 Zero Training)
+ 1. [NuminaMath-TIR](https://huggingface.co/datasets/AI-MO/NuminaMath-TIR) (训练 R1 Zero 时使用)
 
- 2. [Bespoke-Stratos-17k](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k) (For R1 Training)
+ 2. [Bespoke-Stratos-17k](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k) (训练 R1 时使用)
 
-AI-MO/NuminaMath-TIR contains 70K math problems with messages column showing the COT (chain of though) reasoning behind the solution.
+AI-MO/NuminaMath-TIR 包含 70K 个数学问题，其中的messages列显示了解答背后的 COT（思维链）推理。
 
 | Field    | Description |  
 |----------|------------|  
@@ -132,12 +132,13 @@ AI-MO/NuminaMath-TIR contains 70K math problems with messages column showing the
 | solution | Step-by-step solution |  
 | messages    | Chat to solve the problem |
 
-Take a look at its sample:
+看一下数据集的样本：
+
 ```python
-# Load the "AI-MO/NuminaMath-TIR" dataset from DigitalLearningGmbH
+# 从 DigitalLearningGmbH 加载 "AI-MO/NuminaMath-TIR" 数据集
 MATH_le = load_dataset("AI-MO/NuminaMath-TIR", "default")  
 
-# Access the first sample in the training set
+# 获取训练数据的第一条数据（样本）
 MATH_le['train'][0]
 
 
@@ -150,14 +151,15 @@ MATH_le['train'][0]
 #### OUTPUT ####
 ```
 
-While Bespoke-Stratos contains 17K problems focused on math and code.
+而 Bespoke-Stratos 数据集包含 17K 个专注于数学和代码的问题。
 
 | Field        | Description |  
 |-------------|------------|  
 | system      | Guidelines for math and code problems |  
 | conversation | Chat to solve the problem |
 
-And its sample looks like:
+它的数据样本如下所示：
+
 ```python
 # Load the "Bespoke-Stratos-17k" dataset from bespokelabs
 bespoke_rl = load_dataset("bespokelabs/Bespoke-Stratos-17k", "default") 
@@ -174,7 +176,7 @@ bespoke_rl['train'][0]
  #### OUTPUT ####
 ```
 
-It’s not necessary to choose these datasets only, you can select any of your choice as long as it is reasoning focused (**a problem and its step-by-step solution**).
+你不一定要选择这两个数据集，可以选择任何一个面向推理的数据集（**包含问题及问题的分步解答**）。
 
 ## DeepSeek R1 Training Quick Overview
 
