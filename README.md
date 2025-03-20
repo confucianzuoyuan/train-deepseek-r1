@@ -797,9 +797,16 @@ Think of it like this:
 
 * **For correct answers:** We want to reward *shorter*, more direct solutions more than long, rambling ones. A short, correct answer is often better.
 
+* 对于正确答案：我们希望奖励更简短、更直接的解决方案，而不是冗长、漫无目的的解决方案。简短、正确的答案通常更好。
+
 * **For incorrect answers:** A short, wrong answer is probably worse than a longer, wrong answer that at least *tried* to reason. So, we want to penalize short wrong answers *more* than long wrong answers.
 
+* 对于错误答案：简短的错误答案可能比至少尝试推理的较长的错误答案更糟糕。因此，我们希望对简短的错误答案的惩罚比对较长的错误答案的惩罚更大。
+
 Let’s see the code that does this clever scaling:
+
+让我们看看实现这种巧妙缩放的代码：
+
 ```python
 # Implement Cosine Scaled Reward Function
 def get_cosine_scaled_reward(
@@ -841,6 +848,8 @@ def get_cosine_scaled_reward(
 ```
 
 `get_cosine_scaled_reward(...)` generates a reward function for training, customizing scaling with parameters like min_value_wrong/max_value_wrong (penalty range for incorrect answers) and min_value_correct/max_value_correct (reward range for correct ones). max_len sets the maximum length for scaling.
+
+`get_cosine_scaled_reward(...)` 生成一个用于训练的奖励函数，使用 `min_value_wrong/max_value_wrong`（错误答案的惩罚范围）和 `min_value_correct/max_value_correct`（正确答案的奖励范围）等参数定制缩放。`max_len` 设置缩放的最大长度。
 
 Inside, `cosine_scaled_reward(...)` we calculate rewards based on completions, solution, and accuracy_rewards.
 
