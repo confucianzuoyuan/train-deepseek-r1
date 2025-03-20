@@ -386,6 +386,8 @@ Finally, the updated **Qwen Model (B)** is tested again on new problems, continu
 
 We are using the same thinking prompt template that DeepSeek uses for the GRPO algorithm to build R1 Zero, so let’s define that:
 
+我们使用与 DeepSeek 用于 GRPO 算法的相同思维提示模板来构建 R1 Zero，因此让我们定义：
+
 ```python
 # DeepSeek system prompt for GRPO based training
 SYSTEM_PROMPT = (
@@ -399,17 +401,27 @@ SYSTEM_PROMPT = (
    """
 )
 ```
+
 This **system prompt** tells the base model (Qwen2–0.5B) its role as a helpful assistant who reasons step-by-step before answering.
 
+该系统提示告诉基础模型（Qwen2-0.5B）它的角色是作为一个有用的助手，在回答之前逐步进行推理。
+
 The `<think>` and `<answer>` tags are used to structure the model response, separating its internal reasoning from the final answer for better evaluation and reward.
+
+`<think>` 和 `<answer>` 标签用于构建模型响应，将其内部推理与最终答案分开，以便更好地评估和奖励。
 
 ## Preprocessing Training Data
 
 Now that we have our system prompt ready, we need to transform our training data according to our template.
 
+现在我们已经准备好系统提示，我们需要根据模板转换训练数据。
+
 ![Preprocessing dataset overview (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6160/1*XnM7v4dPD4LtyAh2MLuInA.png)
 
 We need to create the make_conversation function that will handle the conversation for us.
+
+我们需要创建 `make_conversation` 函数来为我们处理对话。
+
 ```python
 # Function to structure the training data
 def make_conversation(example):
@@ -423,6 +435,9 @@ def make_conversation(example):
 ```
 
 It will take each problem column value from our training dataset and return a dictionary with the system prompt and the appended problem question for each row. Let’s create this function that will prepare our dataset.
+
+它将从我们的训练数据集中获取每个问题列的值，并返回一个包含系统提示和每行附加问题问题的字典。让我们创建这个函数来准备我们的数据集。
+
 ```python
 # Load and prepare dataset
 def load_math_dataset():
@@ -449,7 +464,10 @@ def load_math_dataset():
     
     return dataset
 ```
+
 We have everything ready, let’s transform our training data into the required format and print the training and test size.
+
+我们已经准备好一切，让我们将训练数据转换为所需的格式并打印训练和测试规模。
 
 ```python
 # Load our training dataset and printing train/test size
@@ -465,7 +483,11 @@ Train set size: 72441
 Test set size: 99
 #### OUTPUT ####
 ```
+
 Now that we have split our training dataset, we need to validate our dataset (**Check if user/assistant conversation exist**) before moving to the next step.
+
+现在我们已经分割了训练数据集，在进入下一步之前，我们需要验证数据集（**检查用户/助手对话是否存在**）。
+
 ```python
 def validate_dataset(dataset):
     """Perform basic validation checks on the dataset."""
@@ -508,7 +530,7 @@ def validate_dataset(dataset):
 validate_dataset(dataset)
 ```
 
-It output this:
+输出如下：
 
 ```
 Validating train split:
@@ -521,35 +543,49 @@ Validating test split:
 ✓ All required fields present
 ✓ Prompt format is correct
 ```
+
 Our training dataset is validated successfully 🙌, it means we have successfully transformed our dataset for training.
 
-## Reward Functions
+我们的训练数据集已成功验证🙌，这意味着我们已成功转换数据集以进行训练。
+
+## 奖励函数
 
 We already saw in GRPO section that it evaluate the answer of base model through five different ways:
 
+我们已经在 GRPO 部分看到，它通过五种不同的方式评估基础模型的答案：
+
 ![Reward Functions (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7474/1*kJln8i6Tv4aspnTfMoRW-Q.png)
 
- 1. **Accuracy** (is the answer correct?)
+ 1. **准确性** (答案正确吗？)
 
- 2. **Format** (are the `<think>` and `<answer>` tags used properly?)
+ 2. **格式** (`<think>` 和 `<answer>` 标签是否正确使用了？)
 
- 3. **Reasoning Steps** (is the logic clear?)
+ 3. **推理步骤** (逻辑清楚吗?)
 
- 4. **Cosine Scaling** (is the response concise?)
+ 4. **余弦缩放(Cosine Scaling)** (响应是否简洁？)
 
- 5. **Repetition Penalty** (is there unnecessary repetition?).
+ 5. **重复性惩罚(Repetition Penalty)** (是否存在不必要的重复？).
 
 Each of these are functions will calculate the reward for each response, and we need to code them. So, let’s do that first.
 
-### Accuracy Reward
+这些函数都会计算每个响应的奖励，我们需要对它们进行编码。所以，让我们先这样做。
+
+### 准确性奖励
 
 Accuracy reward is the most easy to understand but requires a bit complex code. In this reward model we want to check if mathematically our base model response is equivalent to the ground truth solution.
+
+准确率奖励最容易理解，但需要稍微复杂的代码。在这个奖励模型中，我们想要检查从数学上讲我们的基础模型响应是否等同于真实答案。
 
 ![Accuracy Reward (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7860/1*A3tW-OZSZ4m10EEzogjy8Q.png)
 
 If the model answer is mathematically correct, we assign a reward of **1.0**. If it is incorrect, the reward is **0.0**. In cases where the ground truth solution cannot be parsed, we assign a neutral reward of **0.5** to avoid unfair penalties.
 
+如果模型答案在数学上是正确的，我们将分配 **1.0** 的奖励。如果不正确，则奖励为 **0.0** 。在无法解析基本事实解决方案的情况下，我们将分配 **0.5** 的中性奖励，以避免不公平的惩罚。
+
 Now, let’s implement the function.
+
+现在，让我们实现该功能。
+
 ```python
 def accuracy_reward(completions, solution, **kwargs):
     """
@@ -599,29 +635,39 @@ def accuracy_reward(completions, solution, **kwargs):
     
     return rewards
 ```
+
 In this function, we check whether the model response is **equivalent** to the correct answer. Instead of comparing raw text, we:
 
- 1. Convert the solution into a structured mathematical format using **latex2sympy2**.
+在此函数中，我们检查模型响应是否等同于正确答案。我们不比较原始文本，而是：
 
- 2. If parsing fails, assign a neutral reward of **0.5**.
+ 1. Convert the solution into a structured mathematical format using **latex2sympy2** 使用 **latex2sympy2** 将答案转换为结构化数学格式。
 
- 3. Extract the model output and normalize it for better robustness.
+ 2. If parsing fails, assign a neutral reward of **0.5** 如果解析失败，则分配 **0.5** 的中性奖励。
 
- 4. Use **math_verify** to check if the parsed response matches the parsed solution.
+ 3. Extract the model output and normalize it for better robustness 提取模型输出并进行规范化以获得更好的鲁棒性。
 
- 5. If correct assign **1,** if incorrect assign **0**.
+ 4. Use **math_verify** to check if the parsed response matches the parsed solution 使用 **math_verify** 检查解析的响应是否与解析的解决方案匹配。
+
+ 5. If correct assign **1,** if incorrect assign **0** 如果正确则分配 **1** ，如果不正确则分配 **0** 。
 
 This ensures that accuracy evaluation is not just about textual similarity but **true mathematical correctness.**
 
-### Format Reward
+这确保了准确性评估不仅仅涉及文本相似性，还涉及 **真正的数学正确性** 。
+
+### 格式奖励
 
 Format Reward is all about making sure our model follows instructions and structures its output correctly. We asked it to put its reasoning in `<think>` tags and the final answer in `<answer>` tags, right? This reward function checks exactly that!
+
+格式奖励就是确保我们的模型遵循指令并正确构建其输出。我们要求它将推理放在 `<think>` 标签中，将最终答案放在 `<answer>` 标签中，对吗？此奖励函数正是检查这一点！
 
 ![Forward Reward (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6620/1*DbUraziwiOoAj6SvtSJmpw.png)
 
 If the model uses those tags correctly, we give it a reward of 1. If it messes up the format, it gets 0. Simple as that! This encourages the model to pay attention to the output structure we want.
 
-Let’s code this up:
+如果模型正确使用了这些标签，我们会给它 **1** 的奖励。如果格式混乱，就会得到 **0** 。就这么简单！这鼓励模型关注我们想要的输出结构。
+
+让我们编程实现:
+
 ```python
 # Implement Format Reward Function
 def format_reward(completions, **kwargs):
@@ -643,35 +689,52 @@ def format_reward(completions, **kwargs):
   return [1.0 if match else 0.0 for match in matches]
 ```
 
-In this function:
+在这个函数里:
 
 * We define a pattern using regular expressions (regex). This pattern basically says “the content should *start* with <think>, have *anything* inside until </think>, then some *spaces*, then <answer>, *anything* inside until </answer>, and then *end* there”.
 
+* 我们使用正则表达式 (regex) 定义一个模式。该模式的基本含义是“内容应以开头，其中包含任何内容直到 ，然后是一些空格，然后是 ，其中包含任何内容直到 ，然后结束于 ”。
+
 * We get the actual text content from each model completion.
+
+* 我们从每个模型完成中获取实际的文本内容。
 
 * Then we use use re.match to see if each content perfectly matches our pattern. re.DOTALL helps the . in regex match newlines too, and re.MULTILINE makes ^ and $ match the start/end of the whole string, not just lines.
 
+* 然后我们使用 `re.match` 来查看每个内容是否完全匹配我们的模式。`re.DOTALL` 帮助正则表达式中的 . 匹配换行符，而 `re.MULTILINE` 使 `^` 和 `$` 匹配整个字符串的开始/结束，而不仅仅是行。
+
 * Finally, we give a reward 1 if it matched the format perfectly, 0 if it didn’t. This is a strict on/off reward for format correctness.
+
+* 最后，如果格式完全匹配，我们会给予奖励 **1** ，如果不匹配，则会给予奖励 **0** 。这是对格式正确性的严格开/关奖励。
 
 ### Reasoning Steps Reward
 
 Reasoning Steps Reward is a bit clever. We want to encourage our model to show its **“thinking process”**. So, we are going to reward it for including things that *look like* reasoning steps.
 
+推理步骤奖励有点聪明。我们想鼓励我们的模型展示它的 **“思考过程”** 。因此，我们将奖励它包括看起来像推理步骤的内容。
+
 ![Reasoning Steps Reward Encouragement (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/5406/1*hx0sAVnY58WOYw6rGF64ug.png)
 
 We will look for keywords and patterns that usually show up in step-by-step reasoning, like:
 
-* Step 1, Step 2, etc.
+我们将寻找在逐步推理中通常出现的关键词和模式，例如：
 
-* Numbered lists like 1, 2
+* Step 1, Step 2, etc. 步骤 1、步骤 2 等等。
 
-* Bullet points like - or *
+* Numbered lists like 1, 2 编号列表，如 1、2
 
-* Transition words like First, Second, Next, Finally
+* Bullet points like - or * 项目符号如 `-` 或 `*`
+
+* Transition words like First, Second, Next, Finally 过渡词，如“第一”、“第二”、“下一步”、“最后”
 
 The more of these it includes, the better the reward. It’s like giving points for showing its work!
 
+它包含的内容越多，奖励就越好。这就像展示它的工作而给予积分一样！
+
 Let’s code this reasoning encouraging function:
+
+让我们编写这个推理鼓励函数：
+
 ```python
 def reasoning_steps_reward(completions, **kwargs):
     r"""
@@ -696,21 +759,37 @@ def reasoning_steps_reward(completions, **kwargs):
 
 We create a pattern that’s a bit more complex regex. It looks for all those reasoning indicator things we listed above.
 
+我们创建一个稍微复杂一点的正则表达式模式。它会查找我们上面列出的所有推理指标。
+
 We use re.findall to find *all* the matches of our pattern within each content. `len(re.findall(…))` then gives us the *count* of these indicators.
+
+我们使用 re.findall 在每个内容中查找符合我们模式的所有匹配项。len len(re.findall(…))然后为我们提供这些指标的数量。
 
 The reward is calculated as min(1.0, count / 3). This means
 
+奖励的计算方式为 min(1.0, count / 3)。这意味着
+
 * If it finds 3 or more reasoning indicators ( count >= 3), the reward is 1.0 (max reward).
+
+* 如果它发现 3 个或更多推理指标（计数 >= 3），则奖励为 1.0（最大奖励）。
 
 * If it finds fewer (e.g., count = 1 or 2), it gets a *partial* reward (like 1/3 or 2/3).
 
+* 如果发现较少的数量（例如，count = 1 或 2），它会获得部分奖励（如 1/3 或 2/3）。
+
 * If it finds none (count = 0), the reward is 0.0.
 
+* 如果没有找到（计数 = 0），则奖励为 0.0。
+
 The / 3 is a bit of a magic number here. We’re saying **“aim for about 3 reasoning steps to get full credit”** You can tweak this number if you want to encourage more or fewer steps.
+
+`/ 3` 是一个神奇的数字。我们说“目标是完成大约 3 个推理步骤才能获得满分”如果您想鼓励更多或更少的步骤，您可以调整这个数字。
 
 ### Cosine Scaled Reward
 
 Cosine Scaled Reward is a bit more advanced. It’s about encouraging *conciseness* in correct answers and being *less harsh* on longer incorrect answers.
+
+余弦缩放奖励稍微高级一些。它鼓励回答简洁的正确答案，对较长的错误答案则不那么苛刻。
 
 ![Cosine Scaling Concept (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/7094/1*WmG8r1OVeU4R3jObAy0yCg.png)
 
