@@ -41,9 +41,9 @@ train-deepseek-r1/
   - [重复性惩罚奖励(Repetition Penalty Reward)](#repetition-penalty-reward)
 - [R1 Zero的训练配置](#training-configurations-for-r1-zero)
 - [GRPO训练循环](#grpo-training-loop)
-- [保存 Tiny R1 Zero LLM](#saving-tiny-r1-zero-llm)
-- [R1 Zero的两个主要问题](#two-main-problems-with-r1-zero)
-- [为SFT准备冷启动数据](#preparing-cold-start-data-for-sft)
+- [保存 Tiny R1 Zero LLM 模型](#保存-Tiny-R1-Zero-LLM-模型)
+- [R1 Zero的两个主要问题](#R1-Zero-的两个主要问题)
+- [为SFT准备冷启动数据](#为-SFT-准备冷启动数据)
 - [使用长思维链(Long CoT)进行少样本(few-shot)提示](#few-shot-prompting-with-long-cot)
 - [直接进行提示](#direct-prompting)
 - [后处理细化(Post Processing Refinement)](#post-processing-refinement)
@@ -1145,9 +1145,12 @@ Training will take some time but we set **num_train_epochs = 1** and are using a
 
 But for real-world GRPO DeepSeek R1 Zero training, you’d likely train for many more epochs and steps.
 
-## Saving Tiny R1 Zero LLM
+## 保存 Tiny R1 Zero LLM 模型
 
 Once the training completed, we can save our trained model which can be used for inferencing.
+
+一旦训练完成，我们可以保存训练好的模型，以用于推理。
+
 ```python
 # Define the path to your trained model (same as OUTPUT_DIR)
 TRAINED_MODEL_PATH = "data/Qwen-GRPO-training"
@@ -1160,7 +1163,11 @@ grpo_trainer.save_model(TRAINED_MODEL_PATH)
 
 print(f"GRPO Trained model saved to {TRAINED_MODEL_PATH}")
 ```
+
 Then we can simply load the trained model using:
+
+然后我们可以简单地使用以下命令加载训练好的模型：
+
 ```python
 # Load the tokenizer - make sure to use trust_remote_code=True if needed
 tokenizer = AutoTokenizer.from_pretrained(
@@ -1185,6 +1192,8 @@ trained_model.to(device) # 'device' is still our CUDA device from before
 ```
 
 In order to use it for inference:
+
+为了用它进行推理：
 
 ```python
 # Testing Inference with the Trained Model
@@ -1218,50 +1227,86 @@ def test_trained_model_inference(user_input: str):
     return response
 ```
 
-## Two main problems with R1 Zero
+## R1 Zero 的两个主要问题
 
 Now that we have completed our R1 zero training approach using our base model Qwen2–0.5B instead of their DeepSeek V3 (original base model).
 
+现在我们已经完成了 R1 zero 训练方法，使用我们的基础模型 Qwen2-0.5B 而不是他们的 DeepSeek V3（原始基础模型）。
+
 We cannot identify our trained model problems but researches of DeepSeek saw the R1 Zero model performed really well on reasoning tests, even scoring similarly to more advanced models like **OpenAI-01–0912** on tasks like **AIME 2024**.
+
+我们无法识别我们训练的模型问题，但 DeepSeek 的研究发现 R1 Zero 模型在推理测试中表现非常出色，甚至在 **AIME 2024** 等任务上的得分与 **OpenAI-01-0912** 等更先进的模型相似。
 
 This showed that using reinforcement learning (RL) to encourage reasoning in language models is a promising approach.
 
+这表明使用强化学习（RL）来促进语言模型的推理是一种很有前途的方法。
+
 But they also noticed DeepSeek-R1-Zero had some key issues that needed fixing for real world use and wider research.
+
+但他们也注意到 DeepSeek-R1-Zero 存在一些关键问题，需要修复才能在实际应用中和进行更广泛的研究。
 
 ![Problem with R1 Zero (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/6378/1*_NdVhpb9cgT3-8o3Qn7mMA.png)
 
 Researchers of DeepSeek states that the template is *intentionally simple and structurally focused*. It *avoids* imposing any *content-specific* constraints on the *reasoning process itself*. For example, it doesn’t say:
 
+DeepSeek 的研究人员表示，该模板刻意设计得简单且注重结构。它避免对推理过程本身施加任何特定于内容的限制。例如，它没有说：
+
 * “You *must* use step-by-step reasoning” (It just says “reasoning process” leaving it open to the model to define what that means).
+
+* “你 **必须** 使用逐步的推理”（它只是说“推理过程”，而让模型来定义其含义）。
 
 * “You *must* use reflective reasoning”
 
+* “你 **必须** 运用反思推理”
+
 * “You *must* use a specific problem-solving strategy”
+
+* “你 **必须** 使用特定的解决问题策略”
 
 The main problem was that the reasoning processes inside the `<think>` tags were hard to read, making it tough for humans to follow and analyze.
 
+主要问题在于 `<think>` 标签内的推理过程难以阅读，从而使得人类难以理解和分析。
+
 Another issue was language mixing, when asked multi-lingual questions, the model sometimes mixed languages in the same response, leading to inconsistent and confusing outputs.
 
-If you asked it questions in, say, Spanish. Suddenly, its “thinking” would be a jumbled mix of **English and Spanish, **not exactly polished! These problems, messy reasoning and language confusion, were the clear roadblocks.
-> These are the two main reasons they transformed their initial R1 Zero Model into the R1
+另一个问题是语言混合，当被问及多语言问题时，模型有时会在同一个答案中混合使用多种语言，从而导致输出不一致和令人困惑。
 
-## Preparing Cold Start Data for SFT
+If you asked it questions in, say, Spanish. Suddenly, its “thinking” would be a jumbled mix of **English and Spanish, **not exactly polished! These problems, messy reasoning and language confusion, were the clear roadblocks.
+
+如果你用西班牙语问它问题，突然间，它的“思维”就会变成 **英语和西班牙语的混杂，** 不太完美！这些问题、混乱的推理和语言混乱，都是明显的障碍。
+
+> 这是他们将最初的 R1 Zero 模型改造为 R1 的两个主要原因
+
+## 为 SFT 准备冷启动数据
 
 So to fix R1 Zero issues and really get DeepSeek reasoning properly, researchers performed a **Cold Start Data Collection and included Supervised Fine Tuning**.
 
+因此，为了解决 R1 Zero 问题并真正正确地进行 DeepSeek 推理，研究人员进行了 **冷启动数据收集并加入了监督微调** 。
+
 You can think of it as giving the model a good foundation in reasoning before the really intense RL training. Basically, they wanted to teach **DeepSeek-V3 Base** what good reasoning looks like and how to present it clearly.
 
+我们可以将其视为在真正激烈的 RL 训练之前为模型打下良好的推理基础。基本上，他们想教会DeepSeek-V3 Base良好的推理是什么样的以及如何清晰地呈现它。
+
 One of the example of cold start data is [Bespoke-Stratos-17k](https://huggingface.co/datasets/bespokelabs/Bespoke-Stratos-17k) that we see earlier and will be using for creating R1, but **we need to understand how cold dataset is created so we wont skip any part from the actual training**.
+
+冷启动数据的示例之一是我们之前看到的Bespoke-Stratos-17k ，它将用于创建 R1，但我们需要了解冷数据集是如何创建的，这样我们就不会跳过实际训练中的任何部分。
 
 ## Few-shot Prompting with Long CoT
 
 One technique is **Few-shot Prompting with Long Chain-of-Thought (CoT),** in which we try to show DeepSeek-V3 Base (or in our case, Qwen2–0.5B) few examples of questions paired with super detailed, step-by-step solutions. This is Chain-of-Thought (CoT).
 
+其中一种技术是使用长思维链 (CoT) 的少样本提示，我们尝试向 DeepSeek-V3 Base（或在我们的例子中是 Qwen2–0.5B）展示一些问题示例，并附上非常详细的分步解决方案。这就是思维链 (CoT)。
+
 ![Long CoT (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/4068/1*SAhvB0JqaK4d45IiIcj1Ow.png)
 
 Goal of this approach is to make the model learn by example and start mimicking this thorough reasoning style.
 
+这种方法的目标是让模型通过示例学习并开始模仿这种彻底的推理风格。
+
 For our example problem “What is 2 + 3 * 4?”, we can create prompts that include a few solved problems as examples. Let’s see how this looks in Python:
+
+对于我们的示例问题“2 + 3 * 4 等于多少？”，我们可以创建包含一些已解决的问题作为示例的提示。让我们看看它在 Python 中的样子：
+
 ```python
 # Loading Model and Tokenizer
 MODEL_NAME = "Qwen/Qwen2.5-0.5B-Instruct"
@@ -1282,7 +1327,11 @@ def generate_response(prompt_text):
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return response.split("<|im_start|>assistant\n")[-1].strip() # Extract assistant's response
 ```
+
 Let’s define the few shot examples accordingly for our asked question:
+
+让我们根据所提出的问题来定义几个少样本示例：
+
 ```python
 # Example problems with solutions (using | special_token | as delimiter)
 few_shot_prompt = """
@@ -1298,6 +1347,9 @@ Solution:
 ```
 
 Now using our base model our sample generations looks like this:
+
+现在使用我们的基础模型，我们的样本生成如下所示：
+
 ```python
 # Generate response for the target problem using few-shot examples
 target_problem_prompt = few_shot_prompt + "What is 2 + 3 * 4?"
@@ -1310,6 +1362,8 @@ print(model_response_few_shot)
 ```
 
 It output this structured data
+
+它输出以下结构化数据
 
 ```
 Few-shot Prompt:
@@ -1337,17 +1391,28 @@ Step 2: Add 2 to the result from Step 1: 2 + 12 = 14.
 
 See how the model, after seeing examples, starts to structure its answer with <|special_token|> delimiters and provides step-by-step reasoning leading to the summary and final answer!
 
+看看模型在看到示例后如何开始使用 `<|special_token|>` 分隔符构造其答案并提供逐步推理以得出总结和最终答案！
+
 This is the power of few-shot learning guiding the model towards the desired output format.
+
+这就是少样本学习的力量，它可以引导模型达到所需的输出格式。
 
 ## Direct Prompting
 
 Another method is **Direct Prompting**. Here, we directly instruct the model to not just solve the problem, but also to explicitly show its reasoning step-by-step and then verify its answer. 
 
+另一种方法是直接提示。在这里，我们直接指示模型不仅解决问题，而且还逐步明确地展示其推理，然后验证其答案。
+
 This is about encouraging a more deliberate and thoughtful problem-solving approach.
+
+这是为了鼓励采取更加慎重和周到的解决问题的方法。
 
 ![Example based learning (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/4656/1*IYyk7UWgDNADFe_djWcXow.png)
 
 Let’s craft a prompt for “What is 2 + 3 * 4?” that explicitly asks for reasoning and verification. Here’s the Python code to see it in action:
+
+让我们为“2 + 3 * 4 等于多少？”设计一个提示，明确要求推理和验证。以下是 Python 代码，用于查看其实际操作：
+
 ```python
 # Direct prompting example
 direct_prompt_text = """
@@ -1362,7 +1427,11 @@ print(direct_prompt_text)
 print("\nModel Response (Direct Prompting):")
 print(model_response_direct)
 ```
+
 The direct prompting output is very easy to understand and this is what it looks like:
+
+直接提示输出非常容易理解，如下所示：
+
 ```
 Direct Prompt:
 Problem: Solve this, show reasoning step-by-step, and verify:
@@ -1379,9 +1448,14 @@ order of operations and the calculations. Multiplication is
 indeed performed before addition, and the calculations are correct.
 <|special_token|> Summary: The answer is 14.
 ```
+
 As you can see, by directly asking for reasoning and verification, the model provides a more comprehensive output, including a “Verification” section.
 
+可以看到，通过直接要求推理和验证，模型提供了更全面的输出，其中包括“验证”部分。
+
 This method directly guides the model to produce the kind of detailed reasoning we are looking for.
+
+这种方法直接指导模型产生我们所寻求的那种详细推理。
 
 ## Post Processing Refinement
 
