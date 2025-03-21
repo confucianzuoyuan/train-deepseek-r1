@@ -1461,17 +1461,27 @@ This method directly guides the model to produce the kind of detailed reasoning 
 
 The final technique involves **Post-Processing Refinement**. Interestingly, they even used the outputs from the already trained R1 Zero model for this!
 
+最后一项技术涉及 **后处理细化** 。有趣的是，他们甚至使用了已经训练过的 R1 Zero 模型的输出！
+
 Even with its issues, R1 Zero could reason somewhat. So, they took R1 Zero outputs and had human annotators refine them, making them cleaner, more structured, and correcting any mistakes.
+
+即使存在问题，R1 Zero 也能进行一定程度的推理。因此，他们采用了 R1 Zero 的输出，并让人工注释者对其进行了改进，使其更加清晰、更有条理，并纠正了所有错误。
 
 ![Processing Refnement (Created by [Fareed Khan](undefined))](https://cdn-images-1.medium.com/max/4388/1*-GR29EAnTOVBarQ2JrF5sA.png)
 
 Imagine a messy R1 Zero output like this:
+
+想象一下混乱的 R1 Zero 输出，如下所示：
+
 ```
 <think>  ummm... multiply 3 and 4... get 12... then add 2...</think>
 <answer> 14 </answer>
 ```
 
 Human annotators would then refine it to something much clearer and better formatted:
+
+然后，人工注释者会将其细化为更清晰、格式更好的内容：
+
 ```
 <|special_token|> Reasoning: To solve this, we use order of operations, doing multiplication before addition.
 Step 1: Multiply 3 by 4, which is 12.
@@ -1481,7 +1491,12 @@ Step 2: Add 2 to the result: 2 + 12 = 14.
 
 While we can’t perfectly simulate human refinement in code, we can demonstrate a basic idea of how you might programmatically reformat and structure a potentially messy output. 
 
+虽然我们无法完美地模拟人类在代码中的改进，但我们可以展示一个基本的想法，即如何以编程方式重新格式化和构建可能混乱的输出。
+
 Let’s take a simulated “messy” output and show how we could refine it:
+
+让我们模拟一个“混乱”的输出并展示如何改进它：
+
 ```python
 # Simulated messy R1 Zero output
 messy_output = "<think>  ummm... multiply 3 and 4... get 12... then add 2...</think>\n<answer> 14 </answer>"
@@ -1503,6 +1518,9 @@ print(refined_output_text)
 ```
 
 This will output:
+
+这将输出：
+
 ```
 Messy Output (Simulated R1 Zero):
 <think>  ummm... multiply 3 and 4... get 12... then add 2...</think>
@@ -1515,8 +1533,15 @@ Refined Output:
 
 This simple refine_output function is just a basic example. Real refinement by humans involves much more nuanced understanding and correction of reasoning steps.
 
+这个简单的 refine_output 函数只是一个基本的例子。人类真正的改进涉及对推理步骤更细致的理解和纠正。
+
 However, it shows the core idea: taking initial model outputs and improving their quality and structure to create better training data.
+
+然而，它展示了核心思想：采用初始模型输出并改进其质量和结构以创建更好的训练数据。
+
 > After generating this Cold Start Data, the next crucial step was **Supervised Fine-Tuning (SFT)**, which we’ll explore in the next section!
+
+> 生成冷启动数据后，下一个关键步骤是 **监督微调（SFT）** ，我们将在下一节中进行探讨！
 
 ## SFT Stage 1 With Cold Start Data
 
